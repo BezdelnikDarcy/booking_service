@@ -2,3 +2,10 @@ from .services import Services
 from .categories import Categories
 from .bookings import Bookings
 from .reviews import Reviews
+from .employee_service import EmployeeService
+from .promocodes import PromoCodes
+from .promo_usage import PromoUsage
+from .notification import Notification
+from .employee_day_off import EmployeeDayOff
+from .employee_schedule import EmployeeSchedule
+from .salon_schedule import SalonSchedule

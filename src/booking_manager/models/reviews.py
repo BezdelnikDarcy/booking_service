@@ -1,18 +1,21 @@
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
+from django.core.exceptions import ValidationError
 from config.models import BaseModel
+
+from booking_manager.models.bookings import BookingStatus
 
 
 class Reviews(BaseModel):
     client = models.ForeignKey(
-        to='account.Clients',
+        to='account.ClientProfile',
         on_delete=models.CASCADE,
         related_name='reviews',
         verbose_name='Клиент'
     )
     employee = models.ForeignKey(
-        to='account.Employees',
+        to='account.EmployeeProfile',
         on_delete=models.CASCADE,
         related_name='reviews',
         verbose_name='Мастер'
@@ -67,10 +70,15 @@ class Reviews(BaseModel):
         verbose_name = 'Отзыв'
         verbose_name_plural = 'Отзывы'
         ordering = ('-created_at',)
-        unique_together = ['client', 'booking']
+        constraints = [
+            models.UniqueConstraint(
+                fields=["client", "booking"],
+                name="unique_client_booking_review"
+            )
+        ]
 
     def __str__(self):
-        return f"Отзыв {self.client.full_name} на {self.employee.full_name} - {self.rating}★"
+        return f"Отзыв {self.client.user.full_name} на {self.employee.user.full_name} - {self.rating}★"
 
     @property
     def is_positive(self):
@@ -105,3 +113,18 @@ class Reviews(BaseModel):
 
         self.employee.update_rating()
         self.employee.update_reviews_count()
+
+    def clean(self):
+        if self.booking.client != self.client:
+            raise ValidationError(
+                "Отзыв может оставить только клиент из записи"
+            )
+
+        if self.booking.employee_service.employee != self.employee:
+            raise ValidationError(
+                "Отзыв должен быть на мастера из записи"
+            )
+        if self.booking.status != BookingStatus.COMPLETED:
+            raise ValidationError(
+                "Можно оставить отзыв только после завершения записи"
+            )

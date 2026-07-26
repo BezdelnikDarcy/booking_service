@@ -34,8 +34,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_extensions',
     #applications
     'account.apps.AccountConfig',
+    'booking_manager.apps.BookingManagerConfig',
 ]
 
 MIDDLEWARE = [
@@ -88,7 +90,7 @@ DATABASES = {
     },
 }
 
-# AUTH_USER_MODEL = 'account.Users'
+AUTH_USER_MODEL = 'account.Users'
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
@@ -125,3 +127,12 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+STATICFILES_DIRS = [
+    BASE_DIR.parent / "static/images",
+]
+STATIC_ROOT = BASE_DIR.parent / "static"
+
+#media
+MEDIA_URL = 'media/'
+MEDIA_ROOT = 'media_files'

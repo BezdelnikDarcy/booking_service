@@ -1,7 +1,6 @@
 from django.contrib.auth.models import AbstractUser, PermissionsMixin
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
-
 from account.managers import UserManager
 from config.models import BaseModel
 
@@ -12,12 +11,24 @@ class UserType(models.TextChoices):
     ADMIN = 'admin', 'Администратор'
 
 
-class BaseUsers(AbstractUser, PermissionsMixin, BaseModel):
+class Users(AbstractUser, PermissionsMixin, BaseModel):
     username = None
     user_type = models.CharField(
         choices=UserType,
         default=UserType.CLIENT,
         verbose_name="Тип пользователя"
+    )
+    first_name = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        verbose_name="Имя"
+    )
+    last_name = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        verbose_name="Фамилия"
     )
     phone = models.CharField(
         max_length=255,
@@ -42,6 +53,18 @@ class BaseUsers(AbstractUser, PermissionsMixin, BaseModel):
 
     objects = UserManager()
 
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+
+        if is_new:
+            if self.user_type == 'client':
+                ClientProfile.objects.get_or_create(user=self)
+            elif self.user_type == 'employee':
+                EmployeeProfile.objects.get_or_create(user=self)
+            elif self.user_type == 'admin':
+                AdminProfile.objects.get_or_create(user=self)
+
     @property
     def full_name(self):
         if self.first_name and self.last_name:
@@ -49,100 +72,72 @@ class BaseUsers(AbstractUser, PermissionsMixin, BaseModel):
         return f"{self.email}"
 
     class Meta:
-        # verbose_name = "base_user"
-        # verbose_name_plural = "base_users"
-        abstract = True
+        ordering = ["-created_at"]
+        db_table = "users"
+        verbose_name = "user"
+        verbose_name_plural = "users"
 
-class Clients(BaseUsers):
-    first_name = models.CharField(
-        max_length=64,
-        null=True,
-        blank=True,
-        verbose_name="Имя"
-    )
-    last_name = models.CharField(
-        max_length=64,
-        null=True,
-        blank=True,
-        verbose_name="Фамилия"
-    )
-    groups = models.ManyToManyField(
-        to ='auth.Group',
-        related_name='clients_users',
-        blank=True,
-        verbose_name='Группы',
-    )
-    user_permissions = models.ManyToManyField(
-        to ='auth.Permission',
-        related_name='clients_permissions',
-        blank=True,
-        verbose_name='Права доступа клиента',
+class ClientProfile(BaseModel):
+    user = models.OneToOneField(
+        to="account.Users",
+        on_delete=models.CASCADE,
+        related_name="client_profile",
     )
 
     def __str__(self):
-        return f"Клиент: {self.full_name}"
+        return f"Клиент: {self.user.full_name}"
 
     class Meta:
         ordering = ('id', "-created_at")
-        db_table = 'users'
+        db_table = 'clients'
         verbose_name = 'Пользователь'
         verbose_name_plural = 'Пользователи'
 
 
-class UsersAdmin(BaseUsers):
-    first_name = models.CharField(
-        max_length=64,
-        verbose_name="Имя"
-    )
-    last_name = models.CharField(
-        max_length=64,
-        verbose_name="Фамилия"
-    )
-
-    groups = models.ManyToManyField(
-        to ='auth.Group',
-        related_name='admins_users',
-        blank=True,
-        verbose_name='Группы',
-    )
-    user_permissions = models.ManyToManyField(
-        to ='auth.Permission',
-        related_name='admins_permissions',
-        blank=True,
-        verbose_name='Права доступа админа',
+class AdminProfile(BaseModel):
+    user = models.OneToOneField(
+        to="account.Users",
+        on_delete=models.CASCADE,
+        related_name="admin_profile"
     )
 
     def save(self, *args, **kwargs):
+
         if not self.pk:
-            self.user_type = UserType.ADMIN
-            self.is_staff = True
-            self.is_superuser = True
+            self.user.user_type = UserType.ADMIN
+            self.user.is_staff = True
+
+            self.user.save(
+                update_fields=[
+                    "user_type",
+                    "is_staff"
+                ]
+            )
+
         super().save(*args, **kwargs)
 
+
     def __str__(self):
-        return f"Администратор: {self.full_name}"
+        return f"Администратор: {self.user.full_name}"
 
     class Meta:
         db_table = 'admin_users'
         verbose_name = 'Администратор'
         verbose_name_plural = 'Админитраторы'
 
-class Employees(BaseUsers):
-    first_name = models.CharField(
-        max_length=64,
-        verbose_name="Имя"
-    )
-    last_name = models.CharField(
-        max_length=64,
-        verbose_name="Фамилия"
+class EmployeeProfile(BaseModel):
+    user = models.OneToOneField(
+        to="account.Users",
+        on_delete=models.CASCADE,
+        related_name="employee_profile"
     )
     work_time_hours = models.PositiveSmallIntegerField(
         verbose_name="Часы работы в день",
         default=8,
     )
-    worktime_timezone = models.SmallIntegerField(
+    timezone_offset = models.SmallIntegerField(
         verbose_name="Часовой пояс",
-        default=0,
+        default=3,
     )
     rating = models.DecimalField(
         verbose_name="Рейтинг мастера",
@@ -185,25 +180,21 @@ class Employees(BaseUsers):
         verbose_name='Количество отзывов'
     )
 
-    groups = models.ManyToManyField(
-        to ='auth.Group',
-        related_name='employees_users',
-        blank=True,
-        verbose_name='Группы',
-    )
-    user_permissions = models.ManyToManyField(
-        to ='auth.Permission',
-        related_name='employees_permissions',
-        blank=True,
-        verbose_name='Права доступа мастера',
-    )
-
     def save(self, *args, **kwargs):
+
         if not self.pk:
-            self.user_type=UserType.EMPLOYEE
-            self.is_verified = False
-            self.is_staff = False
+            self.user.user_type = UserType.EMPLOYEE
+            self.user.is_staff = False
+
+            self.user.save(
+                update_fields=[
+                    "user_type",
+                    "is_staff"
+                ]
+            )
+
         super().save(*args, **kwargs)
+
 
     def update_rating(self):
         from django.db.models import Avg
@@ -225,7 +216,7 @@ class Employees(BaseUsers):
 
 
     def __str__(self):
-        return f"Мастер: {self.full_name}"
+        return f"Мастер: {self.user.full_name}"
 
     class Meta:
         db_table = 'employees'
