@@ -63,10 +63,10 @@ class EmployeeService(BaseModel):
         return start_at + timedelta(minutes=self.duration)
 
     def clean(self):
-        if self.is_available_service():
+        if not self.is_available_service():
             raise ValidationError({
-                'is_active': 'Услуга недоступна',
+                'service': 'Услуга недоступна',
             })
 
     def is_available_service(self):
-        return self.service.status != ServiceStatus.ACTIVE
+        return self.service.status == ServiceStatus.ACTIVE

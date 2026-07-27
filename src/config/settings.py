@@ -35,6 +35,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django_extensions',
+    'debug_toolbar',
+    'rest_framework',
     #applications
     'account.apps.AccountConfig',
     'booking_manager.apps.BookingManagerConfig',
@@ -45,6 +47,7 @@ MIDDLEWARE = [
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -136,3 +139,9 @@ STATIC_ROOT = BASE_DIR.parent / "static"
 #media
 MEDIA_URL = 'media/'
 MEDIA_ROOT = 'media_files'
+
+
+#iternak IPs
+INTERNAL_IPS = [
+    "127.0.0.1",
+]

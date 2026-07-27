@@ -35,7 +35,7 @@ class BookingAdmin(admin.ModelAdmin):
         (
             None,
             {
-                "fields": ["employee_service", "client", "status", "start_at", "end_at", "total_price", "discount_amount", "final_price", "client_notes"],
+                "fields": ["employee_service", "client", "status", "start_at", "end_at","promo_code", "total_price", "discount_amount", "final_price", "client_notes"],
             },
         ),
         (
@@ -62,6 +62,7 @@ class BookingAdmin(admin.ModelAdmin):
     )
     list_editable = ("status",)
     list_per_page = 20
+    readonly_fields = ("discount_amount", "final_price" )
     ordering = ("start_at",)
 
 

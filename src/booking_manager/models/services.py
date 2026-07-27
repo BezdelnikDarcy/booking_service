@@ -31,7 +31,7 @@ class Services(BaseModel):
         verbose_name="Категория"
     )
     image = models.ImageField(
-        upload_to="services/",
+        upload_to="services/images",
         blank=True,
         null=True,
         verbose_name="Изображение услуги"
@@ -50,3 +50,16 @@ class Services(BaseModel):
 
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        status_changed = False
+
+        if self.pk:
+            old_status = Services.objects.get(pk=self.pk).status
+            status_changed = old_status != self.status
+
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+        if status_changed and self.status != ServiceStatus.ACTIVE:
+            self.employee_services.update(is_active=False)

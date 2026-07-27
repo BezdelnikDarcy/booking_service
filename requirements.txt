@@ -4,3 +4,8 @@ psycopg2-binary==2.9.12
 pillow==12.3.0
 ipython==9.15.0
 django-extensions==4.1
+django-debug-toolbar==7.0.0
+Markdown==3.10.2
+django-filter==26.1
+djangorestframework==3.17.1
+drf-spectacular==0.30.0

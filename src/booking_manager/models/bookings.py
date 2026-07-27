@@ -28,6 +28,15 @@ class Bookings(BaseModel):
         verbose_name="Услуга мастера"
     )
 
+    promo_code = models.ForeignKey(
+    to="PromoCodes",
+    on_delete=models.SET_NULL,
+    null=True,
+    blank=True,
+    related_name="bookings",
+    verbose_name="Промокод",
+)
+
     start_at = models.DateTimeField(
         verbose_name="Начало записи"
     )
