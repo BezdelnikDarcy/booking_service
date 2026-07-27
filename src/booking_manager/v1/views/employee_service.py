@@ -1,12 +1,12 @@
 from booking_manager.models import EmployeeService
 from booking_manager.v1.serializers.employee_service import EmployeeServiceSerializer
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, NotAuthenticated
 from rest_framework import status
 from rest_framework.response import Response
 from django.http import Http404
 from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny
 from account.models.users import UserType
 
 
@@ -14,7 +14,7 @@ from account.models.users import UserType
 @extend_schema(tags=["EmployeeService"])
 class EmployeeServiceListApiView(APIView):
     serializer_class = EmployeeServiceSerializer
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (AllowAny,)
 
     @extend_schema(
         summary="Получить список всех услуг мастеров",
@@ -22,7 +22,7 @@ class EmployeeServiceListApiView(APIView):
         responses={200: EmployeeServiceSerializer(many=True)},
     )
     def get(self, request):
-        if request.user.user_type != UserType.CLIENT :
+        if request.user.is_authenticated and request.user.user_type != UserType.CLIENT :
             employee_service = EmployeeService.objects.all()
         else:
             employee_service = EmployeeService.objects.filter(is_active=True)
@@ -45,14 +45,16 @@ class EmployeeServiceListApiView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def check_admin_permissions(self, request):
-        if request.user.user_type != UserType.ADMIN:
+        if not request.user.is_authenticated:
+            raise NotAuthenticated("Необходимо авторизоваться.")
+        if not (request.user.is_superuser or request.user.user_type == UserType.ADMIN):
             raise PermissionDenied("Создать услуги мастера может только администратор.")
 
 
 @extend_schema(tags=["EmployeeService"])
 class EmployeeServiceDetailApiView(APIView):
     serializer_class = EmployeeServiceSerializer
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (AllowAny,)
 
     def get_object(self, pk):
         try:
@@ -67,8 +69,9 @@ class EmployeeServiceDetailApiView(APIView):
     )
     def get(self, request, pk):
         employee_service = self.get_object(pk)
-        if request.user.user_type == UserType.CLIENT and not employee_service.is_active:
-            raise Http404
+        if not employee_service.is_active:
+            if not request.user.is_authenticated or request.user.user_type == UserType.CLIENT:
+                raise Http404
         serializer = EmployeeServiceSerializer(employee_service)
         return Response(serializer.data)
 
@@ -89,5 +92,7 @@ class EmployeeServiceDetailApiView(APIView):
 
 
     def check_admin_permissions(self, request):
-        if request.user.user_type != UserType.ADMIN:
+        if not request.user.is_authenticated:
+            raise NotAuthenticated("Необходимо авторизоваться.")
+        if not (request.user.is_superuser or request.user.user_type == UserType.ADMIN):
             raise PermissionDenied("Изменять услуги мастера может только администратор.")

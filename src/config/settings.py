@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'django_extensions',
     'debug_toolbar',
     'rest_framework',
+    'drf_spectacular',
     #applications
     'account.apps.AccountConfig',
     'booking_manager.apps.BookingManagerConfig',
@@ -145,3 +146,28 @@ MEDIA_ROOT = 'media_files'
 INTERNAL_IPS = [
     "127.0.0.1",
 ]
+
+#rest framework
+REST_FRAMEWORK = {
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.LimitOffsetPagination",
+    "PAGE_SIZE": 10,
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'API Сервиса бронирования салона красоты',
+    'DESCRIPTION': 'swagger схема',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    # OTHER SETTINGS
+}

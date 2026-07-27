@@ -1,12 +1,12 @@
 from booking_manager.models import SalonSchedule
 from booking_manager.v1.serializers.salon_schedule import SalonScheduleSerializer
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, NotAuthenticated
 from rest_framework import status
 from rest_framework.response import Response
 from django.http import Http404
 from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny
 from account.models.users import UserType
 
 
@@ -14,7 +14,7 @@ from account.models.users import UserType
 @extend_schema(tags=["SalonSchedule"])
 class SalonScheduleListApiView(APIView):
     serializer_class = SalonScheduleSerializer
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (AllowAny,)
 
     @extend_schema(
         summary="Получить список всех рабочих дней салона",
@@ -22,7 +22,7 @@ class SalonScheduleListApiView(APIView):
         responses={200: SalonScheduleSerializer(many=True)},
     )
     def get(self, request):
-        if request.user.user_type != UserType.CLIENT :
+        if request.user.is_authenticated and request.user.user_type != UserType.CLIENT:
             salon_schedule = SalonSchedule.objects.all()
         else:
             salon_schedule = SalonSchedule.objects.filter(is_working=True)
@@ -45,14 +45,16 @@ class SalonScheduleListApiView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def check_admin_permissions(self, request):
-        if request.user.user_type != UserType.ADMIN:
+        if not request.user.is_authenticated:
+            raise NotAuthenticated("Необходимо авторизоваться.")
+        if not (request.user.is_superuser or request.user.user_type == UserType.ADMIN):
             raise PermissionDenied("Создать расписание может только администратор.")
 
 
 @extend_schema(tags=["SalonSchedule"])
 class SalonScheduleDetailApiView(APIView):
     serializer_class = SalonScheduleSerializer
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (AllowAny,)
 
     def get_object(self, pk):
         try:
@@ -67,8 +69,9 @@ class SalonScheduleDetailApiView(APIView):
     )
     def get(self, request, pk):
         salon_schedule = self.get_object(pk)
-        if request.user.user_type == UserType.CLIENT and not salon_schedule.is_working:
-            raise Http404
+        if not salon_schedule.is_working:
+            if not request.user.is_authenticated or request.user.user_type == UserType.CLIENT:
+                raise Http404
         serializer = SalonScheduleSerializer(salon_schedule)
         return Response(serializer.data)
 
@@ -99,5 +102,7 @@ class SalonScheduleDetailApiView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     def check_admin_permissions(self, request):
-        if request.user.user_type != UserType.ADMIN:
+        if not request.user.is_authenticated:
+            raise NotAuthenticated("Необходимо авторизоваться.")
+        if not (request.user.is_superuser or request.user.user_type == UserType.ADMIN):
             raise PermissionDenied("Изменять или удалять расписание может только администратор.")

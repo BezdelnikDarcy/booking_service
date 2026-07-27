@@ -1,12 +1,12 @@
 from booking_manager.models import Categories
 from booking_manager.v1.serializers.categories import CategorieSerializer
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, NotAuthenticated
 from rest_framework import status
 from rest_framework.response import Response
 from django.http import Http404
 from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny
 
 from account.models.users import UserType
 
@@ -14,7 +14,7 @@ from account.models.users import UserType
 @extend_schema(tags=["Categories"])
 class CategoriesListApiView(APIView):
     serializer_class = CategorieSerializer
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (AllowAny,)
 
     @extend_schema(
         summary="Получить список всех категорий",
@@ -42,14 +42,16 @@ class CategoriesListApiView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def check_admin_permissions(self, request):
-        if request.user.user_type != UserType.ADMIN:
+        if not request.user.is_authenticated:
+            raise NotAuthenticated("Необходимо авторизоваться.")
+        if not (request.user.is_superuser or request.user.user_type == UserType.ADMIN):
             raise PermissionDenied("Создать категории может только администратор.")
 
 
 @extend_schema(tags=["Categories"])
 class CategoriesDetailApiView(APIView):
     serializer_class = CategorieSerializer
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (AllowAny,)
 
     def get_object(self, pk):
         try:
@@ -84,5 +86,7 @@ class CategoriesDetailApiView(APIView):
 
 
     def check_admin_permissions(self, request):
-        if request.user.user_type != UserType.ADMIN:
+        if not request.user.is_authenticated:
+            raise NotAuthenticated("Необходимо авторизоваться.")
+        if not (request.user.is_superuser or request.user.user_type == UserType.ADMIN):
             raise PermissionDenied("Изменять категорию может только администратор.")

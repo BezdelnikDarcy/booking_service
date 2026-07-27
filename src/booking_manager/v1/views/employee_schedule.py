@@ -6,7 +6,6 @@ from rest_framework.response import Response
 from django.http import Http404
 from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema
-from rest_framework.permissions import IsAuthenticated
 from account.models.users import UserType
 
 
@@ -14,7 +13,6 @@ from account.models.users import UserType
 @extend_schema(tags=["EmployeeSchedule"])
 class EmployeeScheduleListApiView(APIView):
     serializer_class = EmployeeScheduleSerializer
-    permission_classes = (IsAuthenticated,)
 
     @extend_schema(
         summary="Получить расписание всех мастеров",
@@ -45,14 +43,13 @@ class EmployeeScheduleListApiView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def check_admin_permissions(self, request):
-        if request.user.user_type != UserType.ADMIN:
+        if not (request.user.is_superuser or request.user.user_type == UserType.ADMIN):
             raise PermissionDenied("Создать расписание может только администратор.")
 
 
 @extend_schema(tags=["EmployeeSchedule"])
 class EmployeeScheduleDetailApiView(APIView):
     serializer_class = EmployeeScheduleSerializer
-    permission_classes = (IsAuthenticated,)
 
     def get_object(self, pk):
         try:
@@ -89,5 +86,5 @@ class EmployeeScheduleDetailApiView(APIView):
 
 
     def check_admin_permissions(self, request):
-        if request.user.user_type != UserType.ADMIN:
+        if not (request.user.is_superuser or request.user.user_type == UserType.ADMIN):
             raise PermissionDenied("Изменять расписание мастера может только администратор.")

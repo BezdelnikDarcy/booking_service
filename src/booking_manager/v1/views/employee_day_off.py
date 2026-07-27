@@ -16,7 +16,6 @@ from account.models.users import UserType
 @extend_schema(tags=["EmployeeDayOff"])
 class EmployeeDayOffListApiView(APIView):
     serializer_class = EmployeeDayOffSerializer
-    permission_classes = (IsAuthenticated,)
 
     @extend_schema(
         summary="Получить расписание всех активных выходных мастеров",
@@ -53,7 +52,7 @@ class EmployeeDayOffListApiView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def check_admin_permissions(self, request):
-        if request.user.user_type != UserType.ADMIN:
+        if not (request.user.is_superuser or request.user.user_type == UserType.ADMIN):
             raise PermissionDenied("Создать расписание выходных может только администратор.")
     def check_staff_permissions(self, request):
         if request.user.user_type == UserType.CLIENT:
@@ -62,7 +61,6 @@ class EmployeeDayOffListApiView(APIView):
 @extend_schema(tags=["EmployeeDayOff"])
 class EmployeeDayOffDetailApiView(APIView):
     serializer_class = EmployeeDayOffSerializer
-    permission_classes = (IsAuthenticated,)
 
     def get_object(self, pk):
         try:
@@ -100,7 +98,7 @@ class EmployeeDayOffDetailApiView(APIView):
 
 
     def check_admin_permissions(self, request):
-        if request.user.user_type != UserType.ADMIN:
+        if not (request.user.is_superuser or request.user.user_type == UserType.ADMIN):
             raise PermissionDenied("Изменять расписание выходного дня мастера может только администратор.")
     def check_staff_permissions(self, request):
         if request.user.user_type == UserType.CLIENT:

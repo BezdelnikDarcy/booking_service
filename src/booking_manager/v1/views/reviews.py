@@ -1,12 +1,12 @@
 from booking_manager.models import Reviews
 from booking_manager.v1.serializers.reviews import ReviewsSerializer
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, NotAuthenticated
 from rest_framework import status
 from rest_framework.response import Response
 from django.http import Http404
 from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny
 from account.models.users import UserType
 
 
@@ -14,7 +14,7 @@ from account.models.users import UserType
 @extend_schema(tags=["Reviews"])
 class ReviewListApiView(APIView):
     serializer_class = ReviewsSerializer
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (AllowAny,)
 
     @extend_schema(
         summary="Получить список отзывов",
@@ -22,7 +22,7 @@ class ReviewListApiView(APIView):
         responses={200: ReviewsSerializer(many=True)},
     )
     def get(self, request):
-        if request.user.user_type != UserType.CLIENT :
+        if request.user.is_authenticated and request.user.user_type != UserType.CLIENT:
             reviews = Reviews.objects.all()
         else:
             reviews = Reviews.objects.filter(is_moderated=True)
@@ -36,6 +36,8 @@ class ReviewListApiView(APIView):
         responses={201: ReviewsSerializer},
     )
     def post(self, request):
+        if not request.user.is_authenticated:
+            raise NotAuthenticated("Необходимо авторизоваться.")
         if request.user.user_type != UserType.CLIENT :
             raise PermissionDenied("Отзывы могут оставлять только клиенты.")
         serializer = ReviewsSerializer(data=request.data)
@@ -48,7 +50,7 @@ class ReviewListApiView(APIView):
 @extend_schema(tags=["Reviews"])
 class ReviewDetailApiView(APIView):
     serializer_class = ReviewsSerializer
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (AllowAny,)
 
     def get_object(self, pk):
         try:
@@ -63,8 +65,11 @@ class ReviewDetailApiView(APIView):
     )
     def get(self, request, pk):
         review = self.get_object(pk)
-        if request.user.user_type == UserType.CLIENT and not review.is_moderated:
-            raise Http404
+        if not review.is_moderated:
+            if not request.user.is_authenticated:
+                raise Http404
+            if request.user.user_type == UserType.CLIENT:
+                raise Http404
         serializer = ReviewsSerializer(review)
         return Response(serializer.data)
 
@@ -75,6 +80,8 @@ class ReviewDetailApiView(APIView):
         responses={200: ReviewsSerializer},
     )
     def put(self, request, pk):
+        if not request.user.is_authenticated:
+            raise NotAuthenticated("Необходимо авторизоваться.")
         review = self.get_object(pk)
         self.check_can_edit_review(request, review)
 
@@ -90,6 +97,8 @@ class ReviewDetailApiView(APIView):
         responses={204: None},
     )
     def delete(self, request, pk):
+        if not request.user.is_authenticated:
+            raise NotAuthenticated("Необходимо авторизоваться.")
         review = self.get_object(pk)
         self.check_can_delete_review(request, review)
         review.delete()

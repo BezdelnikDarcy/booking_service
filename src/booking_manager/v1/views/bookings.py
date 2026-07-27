@@ -14,7 +14,6 @@ from account.models.users import UserType
 @extend_schema(tags=["Bookings"])
 class BookingListApiView(APIView):
     serializer_class = BookingSerializer
-    permission_classes = (IsAuthenticated,)
 
     @extend_schema(
         summary="Получить список всех записей",
@@ -24,10 +23,10 @@ class BookingListApiView(APIView):
     def get(self, request):
         user = request.user
 
-        if user.user_type == "admin":
+        if user.is_superuser or user.user_type == UserType.ADMIN:
             bookings = Bookings.objects.all()
 
-        elif user.user_type == "employee":
+        elif user.user_type == UserType.EMPLOYEE:
             bookings = Bookings.objects.filter(
                 employee_service__employee=user.employee_profile
             )
@@ -48,7 +47,7 @@ class BookingListApiView(APIView):
     def post(self, request):
         serializer = BookingSerializer(data=request.data)
         if serializer.is_valid():
-            if request.user.user_type == "client":
+            if request.user.user_type == UserType.CLIENT:
                 serializer.save(client=request.user.client_profile)
             else:
                 serializer.save()
@@ -58,7 +57,6 @@ class BookingListApiView(APIView):
 @extend_schema(tags=["Bookings"])
 class BookingDetailApiView(APIView):
     serializer_class = BookingSerializer
-    permission_classes = (IsAuthenticated,)
 
     def get_object(self,request, pk):
         try:
@@ -68,13 +66,13 @@ class BookingDetailApiView(APIView):
 
         user = request.user
 
-        if user.user_type == "admin":
+        if user.is_superuser or user.user_type == UserType.ADMIN:
             return booking
 
-        if user.user_type == "employee" and booking.employee != user.employee_profile:
+        if user.user_type == UserType.EMPLOYEE and booking.employee != user.employee_profile:
             raise Http404
 
-        if user.user_type == "client" and booking.client != user.client_profile:
+        if user.user_type == UserType.CLIENT and booking.client != user.client_profile:
             raise Http404
 
         return booking
