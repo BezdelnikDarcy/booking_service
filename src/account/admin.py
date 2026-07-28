@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.hashers import make_password
-from account.models.users import Users, ClientProfile
+from account.models.users import Users, ClientProfile, EmployeeProfile, AdminProfile
 
 @admin.register(Users)
 class UserAdmin(admin.ModelAdmin):
