@@ -5,7 +5,10 @@ from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from booking_manager.constants import BookingStatus, ServiceStatus
 from booking_manager.models.employee_schedule import EmployeeSchedule
-
+# from booking_manager.tasks import(
+# send_booking_canceled_email_notification,
+# send_booking_rescheduled_email_notification
+# )
 from config.models import BaseModel
 
 
@@ -136,6 +139,8 @@ class Bookings(BaseModel):
             'cancelled_at',
             'cancellation_reason',
         ])
+        from booking_manager.tasks import send_booking_canceled_email_notification
+        send_booking_canceled_email_notification.delay(self.id)
 
     def mark_no_show(self):
         if self.status != BookingStatus.COMPLETED:
@@ -173,7 +178,9 @@ class Bookings(BaseModel):
         )
 
         self.status = BookingStatus.RESCHEDULED
-        self.save()
+        self.save(update_fields=['status'])
+        from booking_manager.tasks import send_booking_rescheduled_email_notification
+        send_booking_rescheduled_email_notification.delay(new_booking.id)
 
         return new_booking
 

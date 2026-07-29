@@ -12,7 +12,43 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def send_notification(
+        booking,
+        recipient,
+        title,
+        message,
+        notification_type,
+):
+    now = timezone.now()
+    try:
+        result = send_mail(
+            subject=title,
+            message=message,
+            recipient_list=[recipient.email],
+            from_email=settings.DEFAULT_FROM_EMAIL, )
+        if not result:
+            raise RuntimeError("Письмо не отправлено")
+        status = NotificationStatus.SENT
+    except Exception as e:
+        logger.exception(
+            f"Ошибка отправки уведомления для записи {booking.id}: {e}"
+        )
+        status = NotificationStatus.FAILED
 
+
+    Notification.objects.create(
+        booking=booking,
+        recipient=recipient,
+        notification_type=notification_type,
+        channel=NotificationChannel.EMAIL,
+        status=status,
+        title=title,
+        message=message,
+        sent_at=now,
+    )
+
+    #Возвращаем True при успешной отправки сообщения(необходимо для некоторых функций)
+    return status == NotificationStatus.SENT
 
 @shared_task
 def send_booking_reminder_notifications():
@@ -29,44 +65,20 @@ def send_booking_reminder_notifications():
         message=(
             f"Здравствуйте, {booking.client.user.full_name}!\n\n"
             f"Напоминаем, что завтра у вас запись в {booking.start_at:%H:%M} на услугу "
-            f"{booking.employee_service.service.name}.\n\n"
+            f"{booking.service.name}.\n\n"
             f"Ждём вас!"
         )
-        try:
-            result = send_mail(
-                subject=title,
-                message=message,
-                recipient_list=[booking.client.user.email],
-                from_email=settings.DEFAULT_FROM_EMAIL,)
-            if not result:
-                raise RuntimeError("Письмо не отправлено")
+        sent = send_notification(
+            booking=booking,
+            recipient=booking.client.user,
+            title=title,
+            message=message,
+            notification_type=NotificationType.BOOKING_REMINDER,
+        )
+        if sent:
             booking.reminder_sent = True
             booking.save(update_fields=['reminder_sent'])
-            Notification.objects.create(
-                booking=booking,
-                recipient=booking.client.user,
-                notification_type=NotificationType.BOOKING_REMINDER,
-                channel=NotificationChannel.EMAIL,
-                status=NotificationStatus.SENT,
-                title=title,
-                message=message,
-                sent_at=now,
-            )
-        except Exception as e:
-            Notification.objects.create(
-                booking=booking,
-                recipient=booking.client.user,
-                notification_type=NotificationType.BOOKING_REMINDER,
-                channel=NotificationChannel.EMAIL,
-                status=NotificationStatus.FAILED,
-                title=title,
-                message=message,
-                sent_at=now,
-            )
-            logger.exception(
-                f"Ошибка отправки напоминания для {booking.id}: {e}"
-            )
-            raise
+
 
 
 
@@ -105,34 +117,113 @@ def deactivate_promo_codes():
         is_active=False,
     )
 
+@shared_task
+def send_booking_create_email_notification(booking_id):
+    booking = Bookings.objects.select_related(
+        "client__user",
+        "employee_service__employee__user",
+        "employee_service__service",
+    ).get(id=booking_id)
+    client_title = "Подтверждение записи"
+    master_title = "Новая запись"
+    message_to_client = (
+        f"Здравствуйте, {booking.client.user.full_name}!\n\n"
+        f"Ваша запись на услугу {booking.service.name} успешно подтверждена на {booking.start_at:%d.%m.%Y %H:%M} "
+        f"Ждём вас!"
+    )
+    message_to_master = (
+        f"Здравствуйте, {booking.employee.user.full_name}!\n\n"
+        f"Клиент {booking.client.user.full_name} создал запись услуги {booking.service.name} на {booking.start_at:%d.%m.%Y %H:%M}"
+    )
+    notification_type = NotificationType.BOOKING_CREATED
+    #отправка сообщения на почту клиенту
+    send_notification(
+        booking=booking,
+        recipient=booking.client.user,
+        title=client_title,
+        notification_type=notification_type,
+        message=message_to_client,
+    )
+    #Отправка сообщения о создании записи мастеру
+    send_notification(
+        booking=booking,
+        recipient=booking.employee.user,
+        title=master_title,
+        notification_type=notification_type,
+        message=message_to_master,
+    )
 
-# @shared_task
-# def scheduled_task_every_3_min_40_sec():
-#     #Выполняется каждые 3 минуты 40 секунд
-#     print(f"Task executed at {time.strftime('%Y-%m-%d %H:%M:%S')}")
-#     return f"Scheduled task completed at {time.strftime('%H:%M:%S')}"
-#
-#
-# @shared_task
-# def scheduled_task_limited_times():
-#     #Выполняется 3 раза с 19 по 21 число каждый час
-#     print(f"Limited task executed at {time.strftime('%Y-%m-%d %H:%M:%S')}")
-#     return f"Limited task completed"
-#
-# @shared_task
-# def solar_sunrise_greeting():
-#     #Отправляет приветствие на восходе солнца
-#     admins = User.objects.filter(is_superuser=True)
-#     for admin in admins:
-#         print(f"🌅 Good morning {admin.username}! The sun has risen!")
-#         # Здесь реальная отправка email
-#     return "Sunrise greetings sent"
-#
-# @shared_task
-# def weekly_email_newsletter():
-#     #Еженедельная рассылка email
-#     users = User.objects.filter(is_active=True)
-#     for user in users:
-#         print(f"📧 Weekly newsletter sent to {user.email}")
-#         # Здесь реальная отправка email
-#     return f"Weekly newsletter sent to {users.count()} users"
+
+@shared_task
+def send_booking_canceled_email_notification(booking_id):
+    booking = Bookings.objects.select_related(
+        "client__user",
+        "employee_service__employee__user",
+        "employee_service__service",
+    ).get(id=booking_id)
+    title = "Отмена записи"
+    message_to_client = (
+        f"Здравствуйте, {booking.client.user.full_name}!\n\n"
+        f"Ваша запись {booking.start_at:%d.%m.%Y %H:%M} на услугу {booking.service.name} отменена "
+    )
+    message_to_master = (
+        f"Здравствуйте, {booking.employee.user.full_name}!\n\n"
+        f"Запись клиент {booking.client.user.full_name} на {booking.start_at:%d.%m.%Y %H:%M} отменена"
+    )
+    notification_type = NotificationType.BOOKING_CANCELLED
+    #Отправка сообщения об отмене на почту клиенту
+    send_notification(
+        booking=booking,
+        recipient=booking.client.user,
+        title=title,
+        notification_type=notification_type,
+        message=message_to_client,
+    )
+    #Отправка сообщения об отмене записи мастеру
+    send_notification(
+        booking=booking,
+        recipient=booking.employee.user,
+        title=title,
+        notification_type=notification_type,
+        message=message_to_master,
+    )
+
+@shared_task
+def send_booking_rescheduled_email_notification(new_booking_id):
+    new_booking = (Bookings.objects.select_related(
+        "client__user",
+        "employee_service__employee__user",
+        "employee_service__service",
+        "rescheduled_from__employee_service__service",
+        "rescheduled_from__client__user",
+    ).get(id=new_booking_id))
+    old_booking = new_booking.rescheduled_from
+    title = "Перенос записи"
+    message_to_client = (
+        f"Здравствуйте, {new_booking.client.user.full_name}!\n\n"
+        f"Ваша запись {old_booking.start_at:%d.%m.%Y %H:%M} на услугу {old_booking.service.name} перенесена"
+        f" на {new_booking.start_at:%d.%m.%Y %H:%M}, Если вы не запрашивали перенос записи, пожалуйста, свяжитесь с администрацией салона."
+    )
+    message_to_master = (
+        f"Здравствуйте, {new_booking.employee.user.full_name}!\n\n"
+        f"Запись клиента {old_booking.client.user.full_name} на {old_booking.start_at:%d.%m.%Y %H:%M} перенесена"
+        f" на {new_booking.start_at:%d.%m.%Y %H:%M}"
+    )
+    notification_type = NotificationType.BOOKING_RESCHEDULED
+    # Отправка сообщения о переносе на почту клиенту
+    send_notification(
+        booking=new_booking,
+        recipient=new_booking.client.user,
+        title=title,
+        notification_type=notification_type,
+        message=message_to_client,
+    )
+    # Отправка сообщения о переносе записи мастеру
+    send_notification(
+        booking=new_booking,
+        recipient=new_booking.employee.user,
+        title=title,
+        notification_type=notification_type,
+        message=message_to_master,
+    )
+

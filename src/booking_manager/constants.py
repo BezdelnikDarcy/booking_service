@@ -15,6 +15,7 @@ class DiscountType(models.TextChoices):
 class NotificationType(models.TextChoices):
     BOOKING_CREATED = "booking_created", "Создание записи"
     BOOKING_CANCELLED = "booking_cancelled", "Запись отменена"
+    BOOKING_RESCHEDULED = "booking_rescheduled", "Запись перенесена"
     BOOKING_REMINDER = "booking_reminder", "Напоминание о записи"
     REVIEW_CREATED = "review_created", "Новый отзыв"
     SYSTEM = "system", "Системное"
