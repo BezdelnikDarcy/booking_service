@@ -62,7 +62,7 @@ class BookingAdmin(admin.ModelAdmin):
     )
     list_editable = ("status",)
     list_per_page = 20
-    readonly_fields = ("discount_amount", "final_price" )
+    readonly_fields = ("discount_amount", "final_price", "total_price" )
     ordering = ("start_at",)
 
 
@@ -89,7 +89,7 @@ class DayOffAdmin(admin.ModelAdmin):
 admin.site.register(Categories)
 # admin.site.register(Bookings)
 admin.site.register(Reviews)
-# admin.site.register(EmployeeService)
+admin.site.register(EmployeeService)
 admin.site.register(PromoCodes)
 admin.site.register(PromoUsage)
 admin.site.register(Notification)

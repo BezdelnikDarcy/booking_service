@@ -293,5 +293,7 @@ class Bookings(BaseModel):
         if not self.end_at and self.start_at and self.employee_service:
             duration = self.employee_service.duration
             self.end_at = self.start_at + timedelta(minutes=duration)
+        self.total_price = self.employee_service.price
+        self.final_price = self.total_price - self.discount_amount
         self.full_clean()
         super().save(*args, **kwargs)

@@ -14,7 +14,7 @@ from booking_manager.v1.views.services import ServiceListApiView, ServiceDetailA
 from booking_manager.v1.views.users import UserListApiView
 
 urlpatterns = [
-    path("bookings/", BookingListApiView.as_view()),
+    path("bookings/", BookingListApiView.as_view(), name="bookings-list"),
     path("booking/<int:pk>/", BookingDetailApiView.as_view()),
     path("categories/", CategoriesListApiView.as_view()),
     path("category/<int:pk>/", CategoriesDetailApiView.as_view()),
