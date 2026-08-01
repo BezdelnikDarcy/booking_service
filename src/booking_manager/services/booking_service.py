@@ -1,16 +1,18 @@
+from decimal import Decimal
 from booking_manager.models.bookings import Bookings
 from booking_manager.models.employee_day_off import EmployeeDayOff
 from datetime import timedelta
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from booking_manager.constants import BookingStatus, ServiceStatus
+from booking_manager.constants import BookingStatus, ServiceStatus, DiscountType
 from booking_manager.models.employee_schedule import EmployeeSchedule
 from booking_manager.tasks import(
 send_booking_canceled_email_notification,
 send_booking_rescheduled_email_notification
 )
-
+from booking_manager.models.promocodes import PromoCodes
+from booking_manager.models.promo_usage import PromoUsage
 
 
 class BookingService:
@@ -83,8 +85,28 @@ class BookingService:
             })
 
 
+
     @staticmethod
-    def create_booking(client, employee_service, start_at, **kwargs):
+    def _validate_promo_code_is_valid(code):
+        if not code.is_valid():
+            raise ValidationError(
+                "Промокод не действителен"
+            )
+
+
+    @staticmethod
+    def calculate_discount(discount_type,discount_value, price):
+        if discount_type == DiscountType.PERCENT:
+            discount = price * discount_value / 100
+        else:
+            discount = Decimal(discount_value)
+
+        if price <= discount:
+            discount = price
+        return discount
+
+    @staticmethod
+    def create_booking(client, employee_service, start_at, promo_code = None, **kwargs):
         employee = employee_service.employee
         weekday = start_at.weekday()
         duration = employee_service.duration
@@ -103,20 +125,43 @@ class BookingService:
         BookingService._validate_time_conflict_client(client, start_at, end_at)
 
 
-        booking = Bookings(
-            client=client,
-            employee_service=employee_service,
-            start_at=start_at,
-            **kwargs
-        )
-        booking.save()
+        discount = Decimal('0.00')
+        with transaction.atomic():
+            code = None
+            if promo_code:
+                try:
+                    code = PromoCodes.objects.get(
+                        code=promo_code,
+                    )
+                except PromoCodes.DoesNotExist:
+                    raise ValidationError("Промокод не существует")
+                #Проверка валиде ли промокод
+                BookingService._validate_promo_code_is_valid(code)
+
+                price = employee_service.price
+                discount_value = code.discount_value
+                discount_type = code.discount_type
+                discount = BookingService.calculate_discount(discount_type,discount_value, price)
+
+                code.used_count += 1
+                code.save(update_fields=['used_count'])
+
+
+
+            booking = Bookings.objects.create(
+                client=client,
+                employee_service=employee_service,
+                start_at=start_at,
+                discount_amount=discount,
+                **kwargs
+            )
+            if code is not None:
+                PromoUsage.objects.create(
+                    promo=code,
+                    client=client,
+                    booking=booking,
+                )
         return booking
-
-
-
-
-
-
 
 
 

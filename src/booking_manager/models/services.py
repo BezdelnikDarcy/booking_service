@@ -1,8 +1,9 @@
 from django.db import models
-
+from django.core.exceptions import ValidationError
 from config.models import BaseModel
-from booking_manager.constants import ServiceStatus
+from booking_manager.constants import ServiceStatus, BookingStatus
 from booking_manager.managers import ServiceManager
+from booking_manager.models.bookings import Bookings
 
 
 class Services(BaseModel):
@@ -50,6 +51,20 @@ class Services(BaseModel):
 
     def __str__(self):
         return self.name
+
+
+    def clean(self):
+        if self.pk:
+            old_status = Services.objects.get(pk=self.pk).status
+            if old_status == ServiceStatus.ACTIVE and self.status != ServiceStatus.INACTIVE:
+                has_activ_booking = Bookings.objects.filter(
+                    employee_service__service=self,
+                    status=BookingStatus.CONFIRMED,
+                ).exists()
+                if has_activ_booking:
+                    raise ValidationError(
+                        "Отмените активные записи, после чего можно будет совершить деактивацию или архивирование услуги"
+                    )
 
     def save(self, *args, **kwargs):
         status_changed = False

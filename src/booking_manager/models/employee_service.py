@@ -59,9 +59,6 @@ class EmployeeService(BaseModel):
     def __str__(self):
         return f"{self.employee.user.full_name} - {self.service.name}"
 
-    def calculate_end_time(self, start_at):
-        return start_at + timedelta(minutes=self.duration)
-
     def clean(self):
         if not self.is_available_service():
             raise ValidationError({

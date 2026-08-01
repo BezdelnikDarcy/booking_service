@@ -54,25 +54,6 @@ class PromoCodes(BaseModel):
         verbose_name="Только для новых клиентов"
     )
 
-    def clean(self):
-        if self.discount_type == DiscountType.PERCENT:
-            if self.discount_value > 100:
-                raise ValidationError(
-                    "Процент скидки не может быть больше 100%"
-                )
-
-        if self.valid_until:
-            if self.valid_until <= self.valid_from:
-                raise ValidationError(
-                    "Дата окончания должна быть позже даты начала"
-                )
-
-        if self.max_usages:
-            if self.used_count > self.max_usages:
-                raise ValidationError(
-                    "Количество использований не может быть больше лимита"
-                )
-
     def is_valid(self):
         now = timezone.now()
 
@@ -90,18 +71,6 @@ class PromoCodes(BaseModel):
                 return False
 
         return True
-
-    def calculate_discount(self, price):
-        if self.discount_type == DiscountType.PERCENT:
-            discount = price * self.discount_value / 100
-        else:
-            discount = Decimal(self.discount_value)
-
-        return min(discount, price)
-
-    def apply_discount(self, price):
-        discount = self.calculate_discount(price)
-        return price - discount
 
 
     class Meta:
