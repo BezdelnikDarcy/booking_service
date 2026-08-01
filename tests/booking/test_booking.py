@@ -12,7 +12,7 @@ from booking_manager.models.employee_service import EmployeeService
 from booking_manager.models.salon_schedule import SalonSchedule
 from booking_manager.models.employee_schedule import EmployeeSchedule
 from booking_manager.models import EmployeeDayOff
-
+from booking_manager.services.booking_service import BookingService
 
 class TestBookings(APITestCase):
     def setUp(self):
@@ -77,7 +77,7 @@ class TestBookings(APITestCase):
 
 
     def create_test_booking(self, start_at=None, client=None, employee_service=None):
-        return Bookings.objects.create(
+        return BookingService.create_booking(
             client=client or self.client_user.client_profile,
             employee_service=employee_service or self.employee_service,
             start_at=start_at or self.start_at,

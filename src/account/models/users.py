@@ -55,15 +55,46 @@ class Users(AbstractUser, PermissionsMixin, BaseModel):
 
     def save(self, *args, **kwargs):
         is_new = self.pk is None
+        old_user_type = None
+
+        if not is_new:
+            old_user_type = Users.objects.get(pk=self.pk).user_type
+
         super().save(*args, **kwargs)
 
+
         if is_new:
-            if self.user_type == 'client':
-                ClientProfile.objects.get_or_create(user=self)
-            elif self.user_type == 'employee':
-                EmployeeProfile.objects.get_or_create(user=self)
-            elif self.user_type == 'admin':
-                AdminProfile.objects.get_or_create(user=self)
+            self._create_profile()
+        elif old_user_type != self.user_type:
+            self._switch_profile(old_user_type)
+
+    def _create_profile(self):
+        profile = None
+        created = False
+        if self.user_type == UserType.CLIENT:
+            profile, created = ClientProfile.objects.get_or_create(user=self)
+        elif self.user_type == UserType.EMPLOYEE:
+            profile, created = EmployeeProfile.objects.get_or_create(user=self)
+        elif self.user_type == UserType.ADMIN:
+            profile, created = AdminProfile.objects.get_or_create(user=self)
+
+        if not created and not profile.is_active:
+            profile.is_active = True
+            profile.save()
+
+    def _switch_profile(self, old_user_type):
+        if old_user_type == UserType.CLIENT and hasattr(self, 'client_profile'):
+            self.client_profile.is_active = False
+            self.client_profile.save()
+        elif old_user_type == UserType.EMPLOYEE and hasattr(self, 'employee_profile'):
+            self.employee_profile.is_active = False
+            self.employee_profile.save()
+        elif old_user_type == UserType.ADMIN and hasattr(self, 'admin_profile'):
+            self.admin_profile.is_active = False
+            self.admin_profile.save()
+
+        self._create_profile()
+
 
     @property
     def full_name(self):
@@ -83,6 +114,10 @@ class ClientProfile(BaseModel):
         on_delete=models.CASCADE,
         related_name="client_profile",
     )
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Активный профиль",
+    )
 
     def __str__(self):
         return f"Клиент: {self.user.full_name}"
@@ -100,19 +135,15 @@ class AdminProfile(BaseModel):
         on_delete=models.CASCADE,
         related_name="admin_profile"
     )
-
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Активный профиль",
+    )
     def save(self, *args, **kwargs):
 
         if not self.pk:
-            self.user.user_type = UserType.ADMIN
             self.user.is_staff = True
-
-            self.user.save(
-                update_fields=[
-                    "user_type",
-                    "is_staff"
-                ]
-            )
+            self.user.save(update_fields=["is_active"])
 
         super().save(*args, **kwargs)
 
@@ -179,19 +210,15 @@ class EmployeeProfile(BaseModel):
         default=0,
         verbose_name='Количество отзывов'
     )
-
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Активный профиль",
+    )
     def save(self, *args, **kwargs):
 
         if not self.pk:
-            self.user.user_type = UserType.EMPLOYEE
-            self.user.is_staff = False
-
-            self.user.save(
-                update_fields=[
-                    "user_type",
-                    "is_staff"
-                ]
-            )
+            self.user.is_staff = True
+            self.user.save(update_fields=["is_active"])
 
         super().save(*args, **kwargs)
 
