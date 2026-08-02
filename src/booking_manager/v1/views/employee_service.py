@@ -1,5 +1,9 @@
+from rest_framework import filters
+from rest_framework import generics
 from booking_manager.models import EmployeeService
 from booking_manager.v1.serializers.employee_service import EmployeeServiceSerializer
+from booking_manager.v1.filters.employee_service import EmployeeServiceQueryFilter
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.exceptions import PermissionDenied, NotAuthenticated
 from rest_framework import status
 from rest_framework.response import Response
@@ -12,22 +16,23 @@ from account.models.users import UserType
 
 
 @extend_schema(tags=["EmployeeService"])
-class EmployeeServiceListApiView(APIView):
+class EmployeeServiceListApiView(generics.ListCreateAPIView):
+    filter_backends = [DjangoFilterBackend,
+                       filters.OrderingFilter,
+                       filters.SearchFilter,]
+    filterset_class = EmployeeServiceQueryFilter
     serializer_class = EmployeeServiceSerializer
     permission_classes = (AllowAny,)
+    search_fields = [
+        "service__name",
+        "employee__user__first_name",
+    ]
+    ordering_fields = [
+        "price",
+        "duration",
+    ]
 
-    @extend_schema(
-        summary="Получить список всех услуг мастеров",
-        description="Возвращает список всех услуг мастеров",
-        responses={200: EmployeeServiceSerializer(many=True)},
-    )
-    def get(self, request):
-        if request.user.is_authenticated and request.user.user_type != UserType.CLIENT :
-            employee_service = EmployeeService.objects.all()
-        else:
-            employee_service = EmployeeService.objects.filter(is_active=True)
-        serializer = EmployeeServiceSerializer(employee_service, many=True)
-        return Response(serializer.data)
+    queryset = EmployeeService.objects.filter(is_active=True).select_related('service__category')
 
     @extend_schema(
         summary="Создать услугу мастера",

@@ -104,6 +104,7 @@ class BookingMarkNoShowApiView(BookingActionBaseView):
     @extend_schema(
         summary="Поставить неявку по записи",
         description="Ставит неявку на запись по идентификатору",
+        request=BookingSerializer,
         responses={200: BookingSerializer},
     )
     def post(self, request, pk):
@@ -124,6 +125,7 @@ class BookingCompleteApiView(BookingActionBaseView):
     @extend_schema(
         summary="Завершает запись",
         description="Завершает запись по идентификатору",
+        request=BookingSerializer,
         responses={200: BookingSerializer},
     )
     def post(self, request, pk):
@@ -143,6 +145,7 @@ class BookingCancelApiView(BookingActionBaseView):
     @extend_schema(
         summary="Отменяет запись",
         description="Отменяет запись по идентификатору",
+        request=BookingSerializer,
         responses={200: BookingSerializer},
     )
     def post(self, request, pk):
@@ -159,6 +162,7 @@ class BookingRescheduleApiView(BookingActionBaseView):
     @extend_schema(
         summary="Переносит запись",
         description="Переносит запись по идентификатору",
+        request=BookingSerializer,
         responses={200: BookingSerializer},
     )
     def post(self, request, pk):

@@ -17,7 +17,6 @@ class BookingSerializer(serializers.ModelSerializer):
         queryset=Bookings.objects.all(),
         allow_null=True,
         required=False,
-        read_only=True,
     )
 
     class Meta:

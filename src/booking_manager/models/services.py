@@ -56,7 +56,7 @@ class Services(BaseModel):
     def clean(self):
         if self.pk:
             old_status = Services.objects.get(pk=self.pk).status
-            if old_status == ServiceStatus.ACTIVE and self.status != ServiceStatus.INACTIVE:
+            if old_status == ServiceStatus.ACTIVE and self.status != ServiceStatus.ACTIVE:
                 has_activ_booking = Bookings.objects.filter(
                     employee_service__service=self,
                     status=BookingStatus.CONFIRMED,

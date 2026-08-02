@@ -1,5 +1,12 @@
 from django.urls import path
-from booking_manager.v1.views.bookings import BookingListApiView, BookingDetailApiView, BookingMarkNoShowApiView, BookingCompleteApiView, BookingCancelApiView, BookingRescheduleApiView
+from booking_manager.v1.views.bookings import (
+    BookingListApiView,
+    BookingDetailApiView,
+    BookingMarkNoShowApiView,
+    BookingCompleteApiView,
+    BookingCancelApiView,
+    BookingRescheduleApiView,
+)
 from booking_manager.v1.views.categories import CategoriesListApiView, CategoriesDetailApiView
 from booking_manager.v1.views.employee_day_off import EmployeeDayOffListApiView, EmployeeDayOffDetailApiView
 from booking_manager.v1.views.employee_schedule import EmployeeScheduleListApiView, EmployeeScheduleDetailApiView
