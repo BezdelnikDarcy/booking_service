@@ -1,6 +1,5 @@
 from booking_manager.models import PromoUsage
 from booking_manager.v1.serializers.promo_usage import PromoUsageSerializer
-from rest_framework import status
 from rest_framework.response import Response
 from django.http import Http404
 from rest_framework.views import APIView

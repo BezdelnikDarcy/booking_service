@@ -69,9 +69,8 @@ class SalonScheduleDetailApiView(APIView):
     )
     def get(self, request, pk):
         salon_schedule = self.get_object(pk)
-        if not salon_schedule.is_working:
-            if not request.user.is_authenticated or request.user.user_type == UserType.CLIENT:
-                raise Http404
+        if not salon_schedule.is_working and (request.user.user_type == UserType.CLIENT or not request.user.is_authenticated):
+            raise Http404
         serializer = SalonScheduleSerializer(salon_schedule)
         return Response(serializer.data)
 
@@ -90,19 +89,9 @@ class SalonScheduleDetailApiView(APIView):
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    @extend_schema(
-        summary="Удалить расписание рабочего дня",
-        description="Удаляет расписание рабочего дня по идентификатору",
-        responses={204: None},
-    )
-    def delete(self, request, pk):
-        self.check_admin_permissions(request)
-        salon_schedule = self.get_object(pk)
-        salon_schedule.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
 
     def check_admin_permissions(self, request):
         if not request.user.is_authenticated:
             raise NotAuthenticated("Необходимо авторизоваться.")
         if not (request.user.is_superuser or request.user.user_type == UserType.ADMIN):
-            raise PermissionDenied("Изменять или удалять расписание может только администратор.")
+            raise PermissionDenied("Изменять расписание может только администратор.")

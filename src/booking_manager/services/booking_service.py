@@ -155,7 +155,7 @@ class BookingService:
                 discount_amount=discount,
                 **kwargs
             )
-            if code is not None:
+            if code:
                 PromoUsage.objects.create(
                     promo=code,
                     client=client,
@@ -172,6 +172,7 @@ class BookingService:
             raise ValidationError("Только завершённую запись можно отметить как неявку")
         booking.status = BookingStatus.NO_SHOW
         booking.save(update_fields=['status'])
+        return booking
 
     @staticmethod
     def complete_booking(booking):
@@ -202,11 +203,14 @@ class BookingService:
         ])
 
         send_booking_canceled_email_notification.delay(booking.id)
+        return booking
 
 
     @staticmethod
     @transaction.atomic
     def reschedule_booking(booking, new_start_at):
+        if not new_start_at:
+            raise ValidationError("Не указано новое время")
         if booking.status != BookingStatus.CONFIRMED:
             raise ValidationError(
                 "Перенести можно только подтверждённую запись"
