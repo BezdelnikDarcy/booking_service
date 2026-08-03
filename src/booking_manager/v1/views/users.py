@@ -20,13 +20,18 @@ class UserListApiView(
     ]
     filterset_class = EmployeeQueryFilter
     permission_classes = (IsAdminUser,)
-    queryset = Users.objects.filter(is_active=True).prefetch_related('employee_profile')
+    queryset = (Users.objects
+                .filter(is_active=True)
+                .prefetch_related('employee_profile')
+                .distinct()
+    )
     serializer_class = UserSerializer
     pagination_class = CustomUserPagination
 
     ordering_fields = [
         "employee_profile__rating",
         "employee_profile__reviews_count",
+        "employee_profile__experience_years",
     ]
 
     def get(self, request, *args, **kwargs):

@@ -13,7 +13,8 @@ from booking_manager.models.salon_schedule import SalonSchedule
 from booking_manager.models.employee_schedule import EmployeeSchedule
 from booking_manager.models import EmployeeDayOff
 from booking_manager.services.booking_service import BookingService
-
+from booking_manager.services.employee_schedule_service import EmployeeScheduleService
+from booking_manager.services.employee_day_off_service import EmployeeDayOffService
 class TestBookings(APITestCase):
     def setUp(self):
          self.client = APIClient()
@@ -65,7 +66,7 @@ class TestBookings(APITestCase):
          )
 
          for weekday in range(7):
-            EmployeeSchedule.objects.create(
+            EmployeeScheduleService.create_employee_schedule(
                employee = self.employee_user.employee_profile,
                weekday = weekday,
                start_time =self.start_time_employee,
@@ -151,7 +152,7 @@ class TestBookings(APITestCase):
         )
 
         for weekday in range(7):
-            EmployeeSchedule.objects.create(
+            EmployeeScheduleService.create_employee_schedule(
                 employee=self.employee_user_2.employee_profile,
                 weekday=weekday,
                 start_time=self.start_time_employee,
@@ -167,7 +168,7 @@ class TestBookings(APITestCase):
         booking_date = timezone.make_aware(
             datetime(2026, 8, 13, 12, 0)
         )
-        EmployeeDayOff.objects.create(
+        EmployeeDayOffService.create_employee_days_off(
             employee = self.employee_user.employee_profile,
             start_date = self.start_date_day_off,
             end_date = self.end_date_day_off,
