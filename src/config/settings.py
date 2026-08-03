@@ -10,24 +10,19 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
-from pathlib import Path
 import os
 from config.env import env, BASE_DIR
-
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
-
+from datetime import timedelta
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-mgw!er84^8bij8vl3$3r_)$!ldj@st(%_l6$ip6by!*&@t5k5q'
 SECRET_KEY = env('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env('DEBUG')
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["*"]
 
 
 # Application definition
@@ -39,6 +34,18 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_extensions',
+    'debug_toolbar',
+    'rest_framework',
+    'django_rest_passwordreset',
+    'drf_spectacular',
+    'rest_framework_simplejwt',
+    "rest_framework_simplejwt.token_blacklist",
+    'django_celery_results',
+    'django_filters',
+    #applications
+    'account.apps.AccountConfig',
+    'booking_manager.apps.BookingManagerConfig',
 ]
 
 MIDDLEWARE = [
@@ -46,6 +53,7 @@ MIDDLEWARE = [
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -56,7 +64,7 @@ ROOT_URLCONF = 'config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR.parent, 'templates/booking')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -75,12 +83,23 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": env("PG_NAME"),
+        "USER": env("PG_USER"),
+        "PASSWORD": env("PG_PASS"),
+        "HOST": env("PG_HOST"),
+        "PORT": env("PG_PORT"),
+        "OPTIONS": {
+            "client_encoding": "UTF8",
+        },
+        "TEST": {
+            "NAME": env("PG_TEST_DB", default="test_booking_service"),
+        },
+    },
 }
 
+AUTH_USER_MODEL = 'account.Users'
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
@@ -117,3 +136,92 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+STATICFILES_DIRS = [
+    BASE_DIR.parent / "static/images",
+]
+STATIC_ROOT = BASE_DIR.parent / "static"
+
+#media
+MEDIA_URL = 'media/'
+MEDIA_ROOT = 'media_files'
+
+
+#iternak IPs
+INTERNAL_IPS = [
+    "127.0.0.1",
+]
+
+#rest framework
+REST_FRAMEWORK = {
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+    "DEFAULT_FILTER_BACKENDS": ["django_filters.rest_framework.DjangoFilterBackend"],
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.LimitOffsetPagination",
+    "PAGE_SIZE": 10,
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'API Сервиса бронирования салона красоты',
+    'DESCRIPTION': 'swagger схема',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    # OTHER SETTINGS
+    "SECURITY": [{"BearerAuth": []}],
+    "SECURITY_SCHEMES": {
+        "BearerAuth": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+        }
+    },
+}
+
+#JWT
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(
+        minutes=int(env("ACCESS_TOKEN_LIFETIME_MINUTES"))
+    ),
+    "REFRESH_TOKEN_LIFETIME": timedelta(
+        minutes=int(env("REFRESH_TOKEN_LIFETIME_MINUTES"))
+    ),
+
+    "ALGORITHM": env("JWT_ALGORITHM"),
+    "SIGNING_KEY": env("SECRET_KEY"),
+
+    "AUTH_HEADER_TYPES": ("JWT",),
+
+}
+
+
+# Email settings
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = env('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+
+#CELERY
+# Celery Configuration Options
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60
+# CELERY_RESULT_BACKEND = 'django-db'
+CELERY_BROKER_URL = 'redis://127.0.0.1:6379/0'
+CELERY_RESULT_BACKEND = 'redis://127.0.0.1:6379/0'
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_BROKER_TRANSPORT_OPTIONS = {
+    'visibility_timeout': 3600,
+}
