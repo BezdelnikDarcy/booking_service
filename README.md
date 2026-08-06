@@ -22,12 +22,11 @@ Beauty Booking Service — серверное REST-приложение для �
 ![Redis](https://img.shields.io/badge/Redis-7-DC382D?logo=redis&logoColor=white)
 ![Celery](https://img.shields.io/badge/Celery-5.6-37814A?logo=celery&logoColor=white)
 ![Flower](https://img.shields.io/pypi/v/flower?color=37814A&label=Flower&style=flat-square)
-![django-selery-beat](https://img.shields.io/pypi/v/django-celery-beat?color=37814A&label=django-selery-beat&style=flat-square)
+![django-celery-beat](https://img.shields.io/pypi/v/django-celery-beat?color=37814A&label=django-celery-beat&style=flat-square)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
 ![JWT](https://img.shields.io/badge/JWT-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white)
 ![Pillow](https://img.shields.io/pypi/v/pillow?label=Pillow)
 [![API Docs](https://img.shields.io/badge/API_Docs-Swagger-85EA2D?logo=swagger&logoColor=black)](http://localhost:8000/api/schema/swagger-ui/)
-
 
 ---
 
@@ -65,50 +64,74 @@ src
 ```text
 Client
    │
+   ▼
 HTTP Request
    │
+   ▼
 REST API (ViewSet)
    │
+   ▼
 Serializer
    │
+   ▼
 Service Layer
    │
+   ▼
 Models
    │
+   ▼
 PostgreSQL
 
-          │
-      Celery + Redis
-          │
-      Notifications
+Celery + Redis
+      │
+      ▼
+Background Tasks
 ```
-# Основные сущности базы данных
-- Users
-- Categories
-- Services
-- Bookings
-- Reviews
-- Notifications
-- EmployeeServices
-- PromoCodes
-- EmployeeSchedule
-- SalonSchedule
-- EmployeeDayOff
-- PromoUsage
 
-### Реализованный функционал
+# Реализованный функционал
 
-- 🔐 JWT-аутентификация и авторизация
-- 👥 Роли пользователей
-- 🏢 Управление расписанием салона
-- ✂️ Каталог услуг
-- 💇 Управление мастерами
-- 📅 Онлайн-бронирование
-- ⭐ Система отзывов и рейтингов мастеров
-- 🔔 Уведомления
-- ⚙️ Celery + Redis
-- 🐳 Docker Compose
 
+### 🔐 Аутентификация и безопасность
+- JWT-аутентификация и авторизация
+- Ролевая модель пользователей
+
+### 📋 Управление
+- Управление расписанием салона
+- Каталог услуг
+- Управление мастерами
+- Онлайн-бронирование
+
+### 💬 Взаимодействие
+- Система отзывов и рейтингов
+- Уведомления
+
+### ⚙️ Технические
+- Celery + Redis для асинхронных задач
+- Docker Compose для контейнеризации
+
+## Основные модели
+
+<details>
+<summary>📋 Полный список моделей</summary>
+
+- 👤 Users
+- 📂 Categories
+- ✂️ Services
+- 📅 Bookings
+- ⭐ Reviews
+- 🔔 Notifications
+- 💼 EmployeeServices
+- 🎫 PromoCodes
+- 📆 EmployeeSchedule
+- 🏢 SalonSchedule
+- 🚫 EmployeeDayOff
+- 📊 PromoUsage
+</details>
+
+ ---
+## Документация API
+
+Swagger UI: [клац](http://localhost:8000/api/schema/swagger-ui/)
 
 ---
 <div align="center">
@@ -140,6 +163,8 @@ cp .env.example .env
 ---
 
 ## 3. Запуск Docker Compose
+
+После первого запуска дождитесь полной инициализации базы данных, затем выполните миграции.
 
 ```bash
 docker compose up --build
@@ -246,30 +271,28 @@ python manage.py runserver
 
 ---
 
-# 🐳 Используемые сервисы с используемыми портами в Docker
+# 🐳 Docker Compose
 
-| Сервис       | Порт  |
-|--------------|:-----:|
-| Django       | 8000  |
-| PostgreSQL   | 5433  |
-| Redis        | 6380  |
-| celery_worker |   -   |
-| celery_beat  |   -   |
-| Flower       | 5555  |
+| Сервис        | Порт  |
+|---------------|:-----:|
+| Django        | 8000  |
+| PostgreSQL    | 5433  |
+| Redis         | 6380  |
+| Celery Worker |   -   |
+| Celery Beat   |   -   |
+| Flower        | 5555  |
 
 ___
-# Заключение
+# 🏁 Заключение
 
-Проект демонстрирует разработку современного серверного приложения с использованием Django REST Framework, PostgreSQL, Celery, Redis и Docker.
+Проект демонстрирует разработку современного backend-приложения на Django REST Framework с использованием PostgreSQL, Redis, Celery и Docker.
 
-В процессе разработки были реализованы:
-
-- REST API;
-- ролевая модель пользователей;
-- система онлайн-бронирования;
-- управление расписанием сотрудников;
-- сервисный слой бизнес-логики;
-- асинхронная обработка задач;
-- контейнеризация приложения.
+При разработке были реализованы REST API, сервисный слой бизнес-логики, ролевая модель пользователей, система онлайн-бронирования, управление расписанием сотрудников, асинхронная обработка задач и контейнеризация приложения.
 
 Проект может служить основой для дальнейшего развития полноценной системы автоматизации салона красоты.
+
+---
+
+## 👥 Авторы
+
+- [BezdelnikDarcy](https://github.com/BezdelnikDarcy) — разработчик
