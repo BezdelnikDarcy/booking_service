@@ -2,55 +2,32 @@
 from datetime import time, datetime, date, timedelta
 from django.core.exceptions import ValidationError
 from django.utils import timezone
-from rest_framework.test import APITestCase, APIClient
-from account.models.users import Users
-from django.urls import reverse
+from django.test import TestCase, Client
 from booking_manager.models.bookings import Bookings
-from booking_manager.models.categories import Categories
-from booking_manager.models.services import Services
-from booking_manager.models.employee_service import EmployeeService
 from booking_manager.models.salon_schedule import SalonSchedule
 from booking_manager.models.employee_schedule import EmployeeSchedule
 from booking_manager.models import EmployeeDayOff
 from booking_manager.services.booking_service import BookingService
 from booking_manager.services.employee_schedule_service import EmployeeScheduleService
 from booking_manager.services.employee_day_off_service import EmployeeDayOffService
-class TestBookings(APITestCase):
+from booking_manager.constants import ServiceStatus
+from tests.factories.services import ServicesFactory, EmployeeServicesFactory, TEST_SERVICE_DURATION, TEST_SERVICE_PRICE
+from tests.factories.users import ClientFactory, EmployeeFactory
+
+
+
+
+class TestBookings(TestCase):
     def setUp(self):
-         self.client = APIClient()
-         self.client_email ="test_client@test.com"
-         self.client_phone = "12345"
-         self.client_user = Users.objects.create_user(
-             email=self.client_email,
-             password="test",
-             phone=self.client_phone,
-            )
-         self.master_email ="test_master@test.com"
-         self.master_phone = "1234"
-         self.employee_user = Users.objects.create_user(
-            email=self.master_email,
-            password="test",
-            phone=self.master_phone,
-            user_type = "employee",
+         self.client = Client()
+         self.client_user = ClientFactory()
+         self.employee_user = EmployeeFactory()
+         self.service = ServicesFactory()
+         self.employee_service = EmployeeServicesFactory(
+             service=self.service,
+             employee=self.employee_user.employee_profile,
          )
 
-         self.category = Categories.objects.create(
-            name = "test_category",
-         )
-         self.name_service = "test_name_service"
-         self.service = Services.objects.create(
-             name = self.name_service,
-             category = self.category,
-             status = "active",
-         )
-         self.price = 50
-         self.duration = 40
-         self.employee_service = EmployeeService.objects.create(
-             employee = self.employee_user.employee_profile,
-             service = self.service,
-             price = self.price,
-             duration = self.duration,
-         )
          self.start_time_employee = time(10,00)
          self.end_time_employee = time(18,00)
          self.start_time_salon = time(8,00)
@@ -62,7 +39,7 @@ class TestBookings(APITestCase):
                 end_time=self.end_time_salon,
             )
          self.start_at = timezone.make_aware(
-            datetime(2026, 8, 7, 12, 0)
+            datetime(2026, 8, 14, 12, 0)
          )
 
          for weekday in range(7):
@@ -76,80 +53,79 @@ class TestBookings(APITestCase):
 
 
 
-
-    def create_test_booking(self, start_at=None, client=None, employee_service=None):
+    #Функция создания записи(что бы не дублировать в каждом тесте)
+    def create_test_booking(
+            self,
+            start_at=None,
+            client=None,
+            employee_service=None
+    ):
         return BookingService.create_booking(
             client=client or self.client_user.client_profile,
             employee_service=employee_service or self.employee_service,
             start_at=start_at or self.start_at,
         )
 
+    #Проверяем что запись создалась и получаем данные которые ожидаем получить
     def test_create_booking_success(self):
         booking = self.create_test_booking()
         self.assertEqual(Bookings.objects.count(), 1)
         self.assertEqual(booking.client, self.client_user.client_profile)
         self.assertEqual(booking.employee_service, self.employee_service)
 
+    #Тест проверки автоматического расчёта времени окончания услуги
     def test_calculated_end_at(self):
         booking = self.create_test_booking()
-        end_at = self.start_at + timedelta(minutes=self.duration)
+        end_at = self.start_at + timedelta(minutes=TEST_SERVICE_DURATION)
         self.assertEqual(booking.end_at, end_at)
 
+    #Тест расчёта финальной стоимости услуги с учётом скидки
     def test_calculated_final_price(self):
         booking = self.create_test_booking()
-        final_price = self.price - booking.discount_amount
+        final_price = TEST_SERVICE_PRICE - booking.discount_amount
         self.assertEqual(booking.final_price, final_price)
 
+    #Тест создания записи в прошлом
     def test_booking_in_past(self):
         past = timezone.make_aware(
             datetime(2026, 7, 24, 12, 0)
          )
         with self.assertRaises(ValidationError):
             self.create_test_booking(start_at=past)
+        self.assertEqual(Bookings.objects.count(), 0)
 
+    #Тест создания записи в нерабочее время мастера
     def test_booking_outside_working_hours_masters(self):
         not_working_time = timezone.make_aware(
-            datetime(2026, 8, 7, 19, 0)
+            datetime(2026, 8, 14, 19, 0)
         )
         with self.assertRaises(ValidationError):
             self.create_test_booking(start_at=not_working_time)
+        self.assertEqual(Bookings.objects.count(), 0)
 
-
+    #Тест создания записи в нерабочее время салона
     def test_booking_outside_working_hours_salon(self):
         not_working_time = timezone.make_aware(
             datetime(2026, 8, 7, 21, 0)
         )
         with self.assertRaises(ValidationError):
             self.create_test_booking(start_at=not_working_time)
+        self.assertEqual(Bookings.objects.count(), 0)
 
+    #Тест конфликта уремени у мастера(когда 2 пользователя хотят записаться на одну и ту же услугу)
     def test_booking_time_conflict_employee(self):
         self.create_test_booking()
-        self.client_user_2 = Users.objects.create_user(
-            email="test_client_2@test.com",
-            password="test",
-            phone="123452",
-        )
-
+        self.client_user_2 = ClientFactory()
 
         with self.assertRaises(ValidationError):
             self.create_test_booking(client=self.client_user_2.client_profile)
+        self.assertEqual(Bookings.objects.count(), 1)
 
-
-
+    #Тест конфликта времени при записи одним клиентом на разные услуги
     def test_booking_time_conflict_client(self):
         self.create_test_booking()
-        self.employee_user_2 = Users.objects.create_user(
-            email="test_employee_2@test.com",
-            password="test",
-            phone="123452",
-            user_type="employee",
-        )
-        self.employee_service_2 = EmployeeService.objects.create(
-            employee=self.employee_user_2.employee_profile,
-            service=self.service,
-            price=self.price,
-            duration=self.duration,
-        )
+        self.employee_user_2 = EmployeeFactory()
+        self.employee_service_2 = EmployeeServicesFactory(employee=self.employee_user_2.employee_profile)
 
         for weekday in range(7):
             EmployeeScheduleService.create_employee_schedule(
@@ -160,14 +136,15 @@ class TestBookings(APITestCase):
             )
         with self.assertRaises(ValidationError):
             self.create_test_booking(employee_service=self.employee_service_2)
+        self.assertEqual(Bookings.objects.count(), 1)
 
+
+    #Тест создания записи в выходной день мастера
     def test_booking_on_employee_day_off(self):
         self.start_date_day_off = date(2026, 8, 11)
         self.end_date_day_off = date(2026, 8, 15)
 
-        booking_date = timezone.make_aware(
-            datetime(2026, 8, 13, 12, 0)
-        )
+
         EmployeeDayOffService.create_employee_days_off(
             employee = self.employee_user.employee_profile,
             start_date = self.start_date_day_off,
@@ -175,10 +152,11 @@ class TestBookings(APITestCase):
             reason = "test reason"
         )
         with self.assertRaises(ValidationError):
-            self.create_test_booking(start_at=booking_date)
+            self.create_test_booking(start_at=self.start_at)
+        self.assertEqual(Bookings.objects.count(), 0)
 
 
-
+    #Тест создания записи в нерабочи день мастера
     def test_master_not_working(self):
         not_working_time = timezone.make_aware(
             datetime(2026, 8, 8, 12, 0)
@@ -189,3 +167,25 @@ class TestBookings(APITestCase):
         ).update(is_working=False)
         with self.assertRaises(ValidationError):
             self.create_test_booking(start_at=not_working_time)
+        self.assertEqual(Bookings.objects.count(), 0)
+
+    #Тест создания записи на неактивную услугу салона
+    def test_service_inactive(self):
+        self.service.status = ServiceStatus.INACTIVE
+        with self.assertRaises(ValidationError):
+            self.create_test_booking()
+        self.assertEqual(Bookings.objects.count(), 0)
+
+    #Тест создания записи на архивированую услугу салона
+    def test_service_archived(self):
+        self.service.status = ServiceStatus.ARCHIVED
+        with self.assertRaises(ValidationError):
+            self.create_test_booking()
+        self.assertEqual(Bookings.objects.count(), 0)
+
+    #Тест создания записи на неактивную услугу мастера
+    def test_employee_service_not_active(self):
+        self.employee_service.is_active = False
+        with self.assertRaises(ValidationError):
+            self.create_test_booking()
+        self.assertEqual(Bookings.objects.count(), 0)

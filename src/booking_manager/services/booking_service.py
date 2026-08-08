@@ -51,12 +51,18 @@ class BookingService:
             })
 
     @staticmethod
-    def _validate_employee_service_is_active(employee_service):
+    def _validate_service_is_active(employee_service):
         if employee_service.service.status != ServiceStatus.ACTIVE:
             raise ValidationError({
                 'employee_service': 'Услуга недоступна',
             })
 
+    @staticmethod
+    def _validate_employee_service_is_active(employee_service):
+        if not employee_service.is_active:
+            raise ValidationError({
+                'employee_service': 'Услуга недоступна',
+            })
 
     @staticmethod
     def _validate_time_conflict_employee(employee, start_at, end_at):
@@ -115,6 +121,8 @@ class BookingService:
         BookingService._validate_booking_not_in_past(start_at)
         #Проверка на выходном ли мастер в этот день
         BookingService._validate_employee_day_off(employee, start_at)
+        #Проверка активна ли услуга
+        BookingService._validate_service_is_active(employee_service)
         #Проверка активна ли услуга мастера
         BookingService._validate_employee_service_is_active(employee_service)
         #Проверка работает ли мастер в это время

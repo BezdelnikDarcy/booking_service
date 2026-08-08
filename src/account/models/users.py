@@ -60,12 +60,18 @@ class Users(AbstractUser, PermissionsMixin, BaseModel):
         if not is_new:
             old_user_type = Users.objects.get(pk=self.pk).user_type
 
+        self.is_staff = self.user_type in (
+            UserType.ADMIN,
+            UserType.EMPLOYEE,
+        )
         super().save(*args, **kwargs)
 
+        if not is_new and old_user_type == self.user_type:
+            return
 
         if is_new:
             self._create_profile()
-        elif old_user_type != self.user_type:
+        else:
             self._switch_profile(old_user_type)
 
     def _create_profile(self):
@@ -77,6 +83,7 @@ class Users(AbstractUser, PermissionsMixin, BaseModel):
             profile, created = EmployeeProfile.objects.get_or_create(user=self)
         elif self.user_type == UserType.ADMIN:
             profile, created = AdminProfile.objects.get_or_create(user=self)
+
 
         if not created and not profile.is_active:
             profile.is_active = True
@@ -92,6 +99,8 @@ class Users(AbstractUser, PermissionsMixin, BaseModel):
         elif old_user_type == UserType.ADMIN and hasattr(self, 'admin_profile'):
             self.admin_profile.is_active = False
             self.admin_profile.save()
+
+
 
         self._create_profile()
 
@@ -139,13 +148,6 @@ class AdminProfile(BaseModel):
         default=True,
         verbose_name="Активный профиль",
     )
-    def save(self, *args, **kwargs):
-
-        if not self.pk:
-            self.user.is_staff = True
-            self.user.save(update_fields=["is_active"])
-
-        super().save(*args, **kwargs)
 
 
     def __str__(self):
@@ -214,13 +216,6 @@ class EmployeeProfile(BaseModel):
         default=True,
         verbose_name="Активный профиль",
     )
-    def save(self, *args, **kwargs):
-
-        if not self.pk:
-            self.user.is_staff = True
-            self.user.save(update_fields=["is_active"])
-
-        super().save(*args, **kwargs)
 
 
     def update_rating(self):
